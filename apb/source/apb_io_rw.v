@@ -38,7 +38,7 @@
         TPWS: 0.0 ns
 **/
 module apb_io_rw #(
-    parameter APB_ADDR_WIDTH = 4,
+    parameter APB_ADDR_WIDTH = 5,
     parameter APB_DATA_WIDTH = 32
 )(
     // AMBA 3 APB I/F

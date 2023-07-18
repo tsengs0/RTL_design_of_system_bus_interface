@@ -1,12 +1,11 @@
-module apb_io_rw_tb;
+module tb_apb_io_rw;
 
 localparam CLK_PERIOD=100;
-localparam APB_ADDR_WIDTH = 4;
+localparam APB_ADDR_WIDTH = 5;
 localparam APB_DATA_WIDTH = 32;
 // system
 logic          rstn;
 logic          clk_en; // clock gating 
-logic          sys_clk;
 // APB
 logic         pclk;
 logic [ 15:0] paddr; // ls 2 bits are unused 
@@ -26,6 +25,44 @@ logic [ 31:0] control32b;
 logic [ 15:0] control16b;
 logic [  7:0] control8b;
 
+apb_bus #(
+   .CLKPER(CLK_PERIOD)
+) apb_bus0 (
+// APB
+   .pclk     (pclk),
+   .paddr    (paddr),
+   .pwrite   (pwrite),
+   .psel     (psel),
+   .penable  (penable),
+   .pwdata   (pwdata),
+   .prdata   (prdata),
+   .pready   (pready),
+   .pslverr  (pslverr)
+); 
+
+apb_io_rw # (
+    .APB_ADDR_WIDTH(APB_ADDR_WIDTH),
+    .APB_DATA_WIDTH(APB_DATA_WIDTH)
+) apb_io_rw_dut (
+  .clk_en (clk_en), // clock gating
+  .PRDATA(prdata),
+  .PREADY(pready),
+  .PSLVERR(pslverr),
+  .PCLK(pclk),
+  .PRESETn(rstn),
+  .PSEL(psel),
+  .PENABLE(penable),
+  .PWRITE(pwrite),
+  .PADDR(paddr[4:0]),
+  .PWDATA(pwdata),
+  .control32b_o(control32b),
+  .control16b_o(control16b),
+  .control8b_o(control8b),
+  .status32b_i(status32b),
+  .status16b_i(status16b),
+  .status8b_i(status8b)
+);
+
 initial begin
 // system
    rstn    = 1'b0;
@@ -36,7 +73,7 @@ initial begin
    status16b   = 16'h7832;
    status8b    = 16'h2a;
       
-   @(posedge pclk) #(CLK_PERIOD*5); 
+   @(posedge pclk) #(CLK_PERIOD*100); 
    rstn = 1'b1;
     
    #(CLK_PERIOD*5) ; 
@@ -60,41 +97,16 @@ initial begin
 	#500 $stop;       
 end
 
-apb_io_rw # (
-    .APB_ADDR_WIDTH(APB_ADDR_WIDTH),
-    .APB_DATA_WIDTH(APB_DATA_WIDTH)
-) apb_io_rw_dut (
-  .clk_en (clk_en), // clock gating
-  .PRDATA(prdata),
-  .PREADY(pready),
-  .PSLVERR(pslverr),
-  .PCLK(pclk),
-  .PRESETn(rstn),
-  .PSEL(psel),
-  .PENABLE(penable),
-  .PWRITE(pwrite),
-  .PADDR(paddr),
-  .PWDATA(pwdata),
-  .control32b_o(control32b),
-  .control16b_o(control16b),
-  .control8b_o(control8b),
-  .status32b_i(status32b),
-  .status16b_i(status16b),
-  .status8b_i(status8b)
-);
-   
-apb_bus #(
-   .CLKPER(CLK_PERIOD)
-) apb_bus_dut (
-// APB
-   .pclk     (pclk),
-   .paddr    (paddr),
-   .pwrite   (pwrite),
-   .psel     (psel),
-   .penable  (penable),
-   .pwdata   (pwdata),
-   .prdata   (prdata),
-   .pready   (pready),
-   .pslverr  (pslverr)
-); 
+property apb_write_phase;
+   @(posedge apb_io_rw_dut.PCLK) apb_io_rw_dut.apb_write_access == 1'b1 |-> (apb_io_rw_dut.PSEL && apb_io_rw_dut.PENABLE && apb_io_rw_dut.PWRITE);
+endproperty
+apb_write_phase_check: assert property(apb_write_phase)
+                        else $error("Write phase is not compliant with APB protocol.");
+
+
+// dump wave
+initial begin
+   $dumpfile("tb_apb_io_rw.vcd");
+   $dumpvars(5, tb_apb_io_rw);
+end
 endmodule
